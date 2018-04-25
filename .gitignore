@@ -1,4 +1,4 @@
 .idea/
-*.pyo
+*.py[co]
 resources/xbmcstubs/
 

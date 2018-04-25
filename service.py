@@ -33,6 +33,7 @@ __temp__ = unicode(xbmc.translatePath(os.path.join(__profile__, 'temp', '')), 'u
 sys.path.append(__resource__)
 
 from SubsceneUtilities import log, geturl, get_language_codes, subscene_languages, get_episode_pattern
+from ordinal import ordinal
 
 main_url = "https://subscene.com"
 
@@ -43,16 +44,18 @@ aliases = {
     "dcs legends of tomorrow": "Legends of Tomorrow"
 }
 
-# Seasons as strings for searching
-seasons = ["Specials", "First", "Second", "Third", "Fourth", "Fifth", "Sixth", "Seventh", "Eighth", "Ninth", "Tenth"]
-seasons = seasons + ["Eleventh", "Twelfth", "Thirteenth", "Fourteenth", "Fifteenth", "Sixteenth", "Seventeenth",
-                     "Eighteenth", "Nineteenth", "Twentieth"]
-seasons = seasons + ["Twenty-first", "Twenty-second", "Twenty-third", "Twenty-fourth", "Twenty-fifth", "Twenty-sixth",
-                     "Twenty-seventh", "Twenty-eighth", "Twenty-ninth"]
-
 search_section_pattern = "<h2 class=\"(?P<section>\w+)\">(?:[^<]+)</h2>\s+<ul>(?P<content>.*?)</ul>"
 movie_season_pattern = ("<a href=\"(?P<link>/subtitles/[^\"]*)\">(?P<title>[^<]+)\((?P<year>\d{4})\)</a>\s+"
                         "</div>\s+<div class=\"subtle count\">\s+(?P<numsubtitles>\d+)")
+
+
+def seasons(i):
+    """Seasons as strings for searching"""
+    i = int(i)
+    if i == 0:
+        return 'Specials'
+    else:
+        return ordinal(i)
 
 
 def rmtree(path):
@@ -298,13 +301,14 @@ def search_movie(title, year, languages, filename):
 
 def search_tvshow(tvshow, season, episode, languages, filename):
     tvshow = prepare_search_string(tvshow)
+    season_ordinal = seasons(season)
 
     tvshow_lookup = tvshow.lower().replace("'", "").strip(".")
     if tvshow_lookup in aliases:
         log(__name__, 'found alias for "%s"' % tvshow_lookup)
         tvshow = aliases[tvshow_lookup]
 
-    search_string = tvshow + " - " + seasons[int(season)] + " Season"
+    search_string = '{tvshow} - {season_ordinal} Season'.format(**locals())
 
     log(__name__, "Search tvshow = %s" % search_string)
     url = main_url + "/subtitles/title?q=" + urllib.quote_plus(search_string) + '&r=true'
@@ -312,11 +316,11 @@ def search_tvshow(tvshow, season, episode, languages, filename):
 
     if content is not None:
         log(__name__, "Multiple tv show seasons found, searching for the right one ...")
-        tv_show_seasonurl = find_tv_show_season(content, tvshow, seasons[int(season)])
+        tv_show_seasonurl = find_tv_show_season(content, tvshow, season_ordinal)
         if tv_show_seasonurl is not None:
             log(__name__, "Tv show season found in list, getting subs ...")
             url = main_url + tv_show_seasonurl
-            epstr = "%d:%d" % (int(season), int(episode))
+            epstr = '{season}:{episode}'.format(**locals())
             getallsubs(url, languages, filename, epstr)
 
 

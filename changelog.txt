@@ -1,3 +1,11 @@
+1.7.3
+- fixed crash issue when a subtitle with a language unknown to this plugin was found
+- improved title matching for series
+- improved title matching when searching by filename
+
+1.7.2
+- support for series with more than 29 seasons (thanks thiagofigueiro)
+
 1.7.1
 - better download handling
 

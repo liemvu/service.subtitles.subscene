@@ -5,6 +5,7 @@ from StringIO import StringIO
 import xbmc
 import urllib2
 import re
+import sys
 
 subscene_languages = {
     'Albanian': {'id': 1, '3let': 'alb', '2let': 'sq', 'name': 'Albanian'},
@@ -84,10 +85,12 @@ def geturl(url, cookies=None):
     log(__name__, "Getting url: %s" % url)
     try:
         request = urllib2.Request(url)
-        request.add_header('Accept-encoding', 'gzip')
+        request.add_header('Accept', 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8')
+        request.add_header('Accept-Encoding', 'gzip')
+        request.add_header('Accept-Language', 'en-US;q=0.5,en;q=0.3')
         if cookies:
             request.add_header('Cookie', cookies)
-        request.add_header('User-Agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.11; rv:41.0) Gecko/20100101 Firefox/41.0')
+        request.add_header('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:66.0) Gecko/20100101 Firefox/66.0')
         response = urllib2.urlopen(request)
         log(__name__, "request done")
         if response.info().get('Content-Encoding') == 'gzip':
@@ -102,8 +105,12 @@ def geturl(url, cookies=None):
         content = strip_unicode.sub('', content)
         return_url = response.geturl()
         log(__name__, "fetching done")
+    except urllib2.HTTPError as e:
+        log(__name__, "Failed to get url: %s Exception urllib2.HTTPError: %s" % (url, e.code))
+        content = None
+        return_url = None
     except:
-        log(__name__, "Failed to get url: %s" % url)
+        log(__name__, "Failed to get url: %s Exception %s" % (url, sys.exc_info()[0]))
         content = None
         return_url = None
     return content, return_url

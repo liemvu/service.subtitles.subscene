@@ -18,19 +18,18 @@ import HTMLParser
 from operator import itemgetter
 
 
-__addon__ = xbmcaddon.Addon()
-__author__ = __addon__.getAddonInfo('author')
-__scriptid__ = __addon__.getAddonInfo('id')
-__scriptname__ = __addon__.getAddonInfo('name')
-__version__ = __addon__.getAddonInfo('version')
-__language__ = __addon__.getLocalizedString
+ADD_ON = xbmcaddon.Addon()
+AUTHOR = ADD_ON.getAddonInfo('author')
+SCRIPT_ID = ADD_ON.getAddonInfo('id')
+SCRIPT_NAME = ADD_ON.getAddonInfo('name').encode('utf-8')
+VERSION = ADD_ON.getAddonInfo('version')
 
-__cwd__ = unicode(xbmc.translatePath(__addon__.getAddonInfo('path')), 'utf-8')
-__profile__ = unicode(xbmc.translatePath(__addon__.getAddonInfo('profile')), 'utf-8')
-__resource__ = unicode(xbmc.translatePath(os.path.join(__cwd__, 'resources', 'lib')), 'utf-8')
-__temp__ = unicode(xbmc.translatePath(os.path.join(__profile__, 'temp', '')), 'utf-8')
+CWD = unicode(xbmc.translatePath(ADD_ON.getAddonInfo('path')), 'utf-8')
+PROFILE = unicode(xbmc.translatePath(ADD_ON.getAddonInfo('profile')), 'utf-8')
+RESOURCE = unicode(xbmc.translatePath(os.path.join(CWD, 'resources', 'lib')), 'utf-8')
+TEMP = unicode(xbmc.translatePath(os.path.join(PROFILE, 'temp', '')), 'utf-8')
 
-sys.path.append(__resource__)
+sys.path.append(RESOURCE)
 
 from SubsceneUtilities import log, geturl, get_language_codes, subscene_languages, get_episode_pattern
 from ordinal import ordinal
@@ -47,6 +46,15 @@ aliases = {
 search_section_pattern = "<h2 class=\"(?P<section>\w+)\">(?:[^<]+)</h2>\s+<ul>(?P<content>.*?)</ul>"
 movie_season_pattern = ("<a href=\"(?P<link>/subtitles/[^\"]*)\">(?P<title>[^<]+)\((?P<year>\d{4})\)</a>\s+"
                         "</div>\s+<div class=\"subtle count\">\s+(?P<numsubtitles>\d+)")
+
+
+def _xmbc_localized_string_utf8(string_id):
+    return ADD_ON.getLocalizedString(string_id).encode('utf-8')
+
+
+def _xbmc_notification(string_id, heading=SCRIPT_NAME):
+    message = _xmbc_localized_string_utf8(string_id)
+    xbmcgui.Dialog().notification(heading, message)
 
 
 def seasons(i):
@@ -70,10 +78,10 @@ def rmtree(path):
 
 
 try:
-    rmtree(__temp__)
+    rmtree(TEMP)
 except:
     pass
-xbmcvfs.mkdirs(__temp__)
+xbmcvfs.mkdirs(TEMP)
 
 
 def find_movie(content, title, year):
@@ -188,7 +196,7 @@ def append_subtitle(item):
 
     # below arguments are optional, it can be used to pass any info needed in download function
     # anything after "action=download&" will be sent to addon once user clicks listed subtitle to downlaod
-    url = "plugin://%s/?action=download&link=%s&filename=%s" % (__scriptid__,
+    url = "plugin://%s/?action=download&link=%s&filename=%s" % (SCRIPT_ID,
                                                                 item['link'],
                                                                 item['filename'])
     if 'episode' in item:
@@ -208,7 +216,7 @@ def getallsubs(url, allowed_languages, filename="", episode=""):
 
     codes = get_language_codes(allowed_languages)
     if len(codes) < 1:
-        xbmc.executebuiltin((u'Notification(%s,%s)' % (__scriptname__, __language__(32004))).encode('utf-8'))
+        _xbmc_notification(32004)
         return
     log(__name__, 'LanguageFilter='+','.join(codes))
     content, response_url = geturl(url, 'LanguageFilter='+','.join(codes))
@@ -252,7 +260,7 @@ def getallsubs(url, allowed_languages, filename="", episode=""):
                     subtitles.append({'rating': rating, 'filename': subtitle_name, 'sync': sync, 'link': link,
                                       'lang': language_info, 'hearing_imp': hearing_imp, 'comment': comment})
                 elif numfiles > 2:
-                    subtitle_name = subtitle_name + ' ' + (__language__(32001) % int(matches.group('numfiles')))
+                    subtitle_name = subtitle_name + ' ' + (_xmbc_localized_string_utf8(32001) % int(matches.group('numfiles')))
                     subtitles.append({'rating': rating, 'filename': subtitle_name, 'sync': sync, 'link': link,
                                       'lang': language_info, 'hearing_imp': hearing_imp, 'comment': comment,
                                       'episode': episode})
@@ -351,7 +359,7 @@ def search_filename(filename, languages):
 
 def search(item):
     filename = os.path.splitext(os.path.basename(item['file_original_path']))[0]
-    log(__name__, "Search_subscene='%s', filename='%s', addon_version=%s" % (item, filename, __version__))
+    log(__name__, "Search_subscene='%s', filename='%s', addon_version=%s" % (item, filename, VERSION))
 
     if item['mansearch']:
         search_manual(item['mansearchstr'], item['3let_language'], filename)
@@ -371,7 +379,7 @@ def download(link, episode=""):
     downloadlink_pattern = "...<a href=\"(.+?)\" rel=\"nofollow\" onclick=\"DownloadSubtitle"
 
     uid = uuid.uuid4()
-    tempdir = os.path.join(__temp__, unicode(uid))
+    tempdir = os.path.join(TEMP, unicode(uid))
     xbmcvfs.mkdirs(tempdir)
 
     content, response_url = geturl(link)
@@ -460,9 +468,9 @@ def download(link, episode=""):
 
         if len(subtitle_list) == 0:
             if episode:
-                xbmc.executebuiltin((u'Notification(%s,%s)' % (__scriptname__, __language__(32002))).encode('utf-8'))
+                _xbmc_notification(32002)
             else:
-                xbmc.executebuiltin((u'Notification(%s,%s)' % (__scriptname__, __language__(32003))).encode('utf-8'))
+                _xbmc_notification(32003)
 
     return subtitle_list
 

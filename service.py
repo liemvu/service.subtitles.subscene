@@ -244,9 +244,11 @@ def getallsubs(url, allowed_languages, filename="", episode=""):
         if matches.group('numfiles') != "":
             numfiles = int(matches.group('numfiles'))
         languagefound = matches.group('language')
-        language_info = subscene_languages[languagefound]
+        language_info = None
+        if languagefound in subscene_languages:
+            language_info = subscene_languages[languagefound]
 
-        if language_info and language_info['3let'] in allowed_languages:
+        if language_info is not None and language_info['3let'] in allowed_languages:
             link = main_url + matches.group('link')
             subtitle_name = string.strip(matches.group('filename'))
             hearing_imp = (matches.group('hiclass') == "a41")

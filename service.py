@@ -114,18 +114,20 @@ def find_movie(content, title, year):
     year = int(year)
     title = string.lower(title)
     # Priority 1: matching title and year
-    for movie in found_movies:
-        if string.find(movie['t'], title) > -1:
-            if movie['y'] == year:
-                log(__name__, "Matching movie found on search page: %s (%s)" % (movie['t'], movie['y']))
-                return movie['l']
+    if year > -1:
+        for movie in found_movies:
+            if string.find(movie['t'], title) > -1:
+                if movie['y'] == year:
+                    log(__name__, "Matching movie found on search page: %s (%s)" % (movie['t'], movie['y']))
+                    return movie['l']
 
     # Priority 2: matching title and one off year
-    for movie in found_movies:
-        if string.find(movie['t'], title) > -1:
-            if movie['y'] == year + 1 or movie['y'] == year - 1:
-                log(__name__, "Matching movie found on search page (one off year): %s (%s)" % (movie['t'], movie['y']))
-                return movie['l']
+    if year > -1:
+        for movie in found_movies:
+            if string.find(movie['t'], title) > -1:
+                if movie['y'] == year + 1 or movie['y'] == year - 1:
+                    log(__name__, "Matching movie found on search page (one off year): %s (%s)" % (movie['t'], movie['y']))
+                    return movie['l']
 
     # Priority 3: "Exact" match according to search result page
     close_movies = []
@@ -283,7 +285,7 @@ def search_movie(title, year, languages, filename):
     title = prepare_search_string(title)
 
     log(__name__, "Search movie = %s" % title)
-    url = main_url + "/subtitles/title?q=" + urllib.quote_plus(title) + '&r=true'
+    url = main_url + "/subtitles/titlesearch?q=" + urllib.quote_plus(title)
     content, response_url = geturl(url)
 
     if content is not None:
@@ -319,7 +321,7 @@ def search_tvshow(tvshow, season, episode, languages, filename):
     search_string = '{tvshow} - {season_ordinal} Season'.format(**locals())
 
     log(__name__, "Search tvshow = %s" % search_string)
-    url = main_url + "/subtitles/title?q=" + urllib.quote_plus(search_string) + '&r=true'
+    url = main_url + "/subtitles/titlesearch?q=" + urllib.quote_plus(search_string) + '&r=true'
     content, response_url = geturl(url)
 
     if content is not None:
@@ -333,9 +335,7 @@ def search_tvshow(tvshow, season, episode, languages, filename):
 
 
 def search_manual(searchstr, languages, filename):
-    search_string = prepare_search_string(searchstr)
-    url = main_url + "/subtitles/release?q=" + search_string + '&r=true'
-    getallsubs(url, languages, filename)
+    search_movie(searchstr, -1, languages, filename)
 
 
 def search_filename(filename, languages):
@@ -353,6 +353,8 @@ def search_filename(filename, languages):
         search_tvshow(tvshow, season, episode, languages, filename)
     elif title and yearval > 1900:
         search_movie(title, year, languages, filename)
+    elif title:
+        search_manual(title, languages, filename)
     else:
         search_manual(filename, languages, filename)
 

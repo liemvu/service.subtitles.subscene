@@ -164,9 +164,15 @@ def find_tv_show_season(content, tvshow, season):
         found_urls.append(matches.group('link'))
         s = difflib.SequenceMatcher(None, string.lower(found_title + ' ' + matches.group('year')), string.lower(tvshow))
         all_tvshows.append(matches.groups() + (s.ratio() * int(matches.group('numsubtitles')),))
-        if string.find(string.lower(found_title), string.lower(tvshow) + " ") > -1:
+        # try to find match on title
+        if string.find(string.lower(found_title), string.lower(tvshow)) > -1:
+            # try to match season
             if string.find(string.lower(found_title), string.lower(season)) > -1:
                 log(__name__, "Matching tv show season found on search page: %s" % found_title)
+                possible_matches.append(matches.groups())
+            # try to match with season if first season (ie one season only series)
+            elif string.lower(season) == "first" and string.find(string.lower(found_title), "season") == -1:
+                log(__name__, "Matching tv show (no season) found on search page: %s" % found_title)
                 possible_matches.append(matches.groups())
 
     if len(possible_matches) > 0:

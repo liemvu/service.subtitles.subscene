@@ -190,6 +190,52 @@ def find_tv_show_season(content, tvshow, season):
     return url_found
 
 
+def find_tv_show_season_google_edition(content, tvshow, season, year):
+    url_found = None
+    found_urls = []
+    possible_matches = []
+    all_tvshows = []
+    search_result_url_pattern = "(?P<url>https:\/\/subscene\.com\/subtitles\/.+?)[\"/&<?]"
+    tvshow_slug = string.lower(tvshow).replace(" ", "-")
+
+    h = HTMLParser.HTMLParser()
+    for matches in re.finditer(search_result_url_pattern, content, re.IGNORECASE):
+        found_url = matches.group('url')
+
+        if found_url in found_urls:
+            continue
+        log(__name__, "Found match on search page: %s" % found_url)
+        found_slug = string.lower(found_url.split("/")[-1])
+        found_urls.append(found_url)
+        score = difflib.SequenceMatcher(None, found_slug, tvshow_slug).ratio() + difflib.SequenceMatcher(None, found_slug, tvshow_slug + "-" + year).ratio()
+        all_tvshows.append([score, found_url])
+        # try to find match on title
+        log(__name__, "Trying to match on title: (%s) and (%s)" % (found_slug, tvshow_slug))
+        if string.find(found_slug, tvshow_slug) > -1:
+            # try to match season
+            if string.find(string.lower(found_slug), string.lower(season)) > -1:
+                log(__name__, "Matching tv show season found on search page: %s" % found_url)
+                possible_matches.append([score, found_url])
+            # try to match with season if first season (ie one season only series)
+            elif string.lower(season) == "first" and string.find(string.lower(found_url), "season") == -1:
+                log(__name__, "Matching tv show (no season) found on search page: %s" % found_url)
+                possible_matches.append([score, found_url])
+
+    if len(possible_matches) > 0:
+        possible_matches = sorted(possible_matches, key=lambda x: -int(x[0]))
+        url_found = possible_matches[0][1]
+        log(__name__, "Selecting matching tv show with highest fuzzy string score: %s (%s)" % (
+            possible_matches[0][0], possible_matches[0][1]))
+    else:
+        if len(all_tvshows) > 0:
+            all_tvshows = sorted(all_tvshows, key=lambda x: -int(x[0]))
+            url_found = all_tvshows[0][1]
+            log(__name__, "Selecting possible tv show with highest fuzzy string score: %s (score: %s)" % (
+                all_tvshows[0][0], all_tvshows[0][1]))
+
+    return url_found
+
+
 def append_subtitle(item):
     title = item['filename']
     if 'comment' in item and item['comment'] != '':
@@ -227,9 +273,11 @@ def getallsubs(url, allowed_languages, filename="", episode=""):
         _xbmc_notification(32004)
         return
     log(__name__, 'LanguageFilter='+','.join(codes))
-    content, response_url = geturl(url, 'LanguageFilter='+','.join(codes))
+    #content, response_url = geturl(url, 'LanguageFilter='+','.join(codes))
+    content, response_url = geturl(url)
 
     if content is None:
+        log(__name__, 'response empty')
         return
 
     subtitles = []
@@ -240,7 +288,8 @@ def getallsubs(url, allowed_languages, filename="", episode=""):
         log(__name__, "regex: %s" % get_episode_pattern(episode))
 
     for matches in re.finditer(subtitle_pattern, content, re.IGNORECASE | re.DOTALL):
-        numfiles = 1
+        log(__name__, "Found subtitle: %s" % matches.groupdict())
+        numfiles = -1
         if matches.group('numfiles') != "":
             numfiles = int(matches.group('numfiles'))
         languagefound = matches.group('language')
@@ -248,6 +297,7 @@ def getallsubs(url, allowed_languages, filename="", episode=""):
         if languagefound in subscene_languages:
             language_info = subscene_languages[languagefound]
 
+        log(__name__, "language_info: %s, language_info['3let']: %s, allowed_languages: %s" % (language_info, language_info['3let'], allowed_languages))
         if language_info is not None and language_info['3let'] in allowed_languages:
             link = main_url + matches.group('link')
             subtitle_name = string.strip(matches.group('filename'))
@@ -274,11 +324,16 @@ def getallsubs(url, allowed_languages, filename="", episode=""):
                     subtitles.append({'rating': rating, 'filename': subtitle_name, 'sync': sync, 'link': link,
                                       'lang': language_info, 'hearing_imp': hearing_imp, 'comment': comment,
                                       'episode': episode})
+                else:
+                    subtitles.append({'rating': rating, 'filename': subtitle_name, 'sync': sync, 'link': link,
+                                      'lang': language_info, 'hearing_imp': hearing_imp, 'comment': comment,
+                                      'episode': episode})
             else:
                 subtitles.append({'rating': rating, 'filename': subtitle_name, 'sync': sync, 'link': link,
                                   'lang': language_info, 'hearing_imp': hearing_imp, 'comment': comment})
 
     subtitles.sort(key=lambda x: [not x['sync'], not x['lang']['name'] == PreferredSub])
+    log(__name__, "subtitles count: %s" % len(subtitles))
     for s in subtitles:
         append_subtitle(s)
 
@@ -317,7 +372,10 @@ def search_movie(title, year, languages, filename):
                     log(__name__, "Movie not found in list: %s" % title)
 
 
-def search_tvshow(tvshow, season, episode, languages, filename):
+def search_tvshow(tvshow, season, episode, languages, filename, year):
+    search_tvshow_google_edition(tvshow, season, episode, languages, filename, year)
+    return
+    
     tvshow = prepare_search_string(tvshow)
     season_ordinal = seasons(season)
 
@@ -342,6 +400,31 @@ def search_tvshow(tvshow, season, episode, languages, filename):
             getallsubs(url, languages, filename, epstr)
 
 
+def search_tvshow_google_edition(tvshow, season, episode, languages, filename, year):
+    tvshow = prepare_search_string(tvshow)
+    season_ordinal = seasons(season)
+
+    tvshow_lookup = tvshow.lower().replace("'", "").strip(".")
+    if tvshow_lookup in aliases:
+        log(__name__, 'found alias for "%s"' % tvshow_lookup)
+        tvshow = aliases[tvshow_lookup]
+
+    search_string = '{tvshow} - {season_ordinal} Season'.format(**locals())
+
+    log(__name__, "Search tvshow = %s" % search_string)
+    url = "https://www.google.com/search?q=subscene.com+" + urllib.quote_plus(search_string)
+    content, response_url = geturl(url)
+
+    if content is not None:
+        #log(__name__, "Multiple tv show seasons found, searching for the right one ...")
+        tv_show_seasonurl = find_tv_show_season_google_edition(content, tvshow, season_ordinal, year)
+        if tv_show_seasonurl is not None:
+            log(__name__, "Tv show season found in list, getting subs ...")
+            url = tv_show_seasonurl
+            epstr = '{season}:{episode}'.format(**locals())
+            getallsubs(url, languages, filename, epstr)
+
+
 def search_manual(searchstr, languages, filename):
     search_movie(searchstr, -1, languages, filename)
 
@@ -358,7 +441,7 @@ def search_filename(filename, languages):
         tvshow = string.strip(title[:match.start('season') - 1])
         season = string.lstrip(match.group('season'), '0')
         episode = string.lstrip(match.group('episode'), '0')
-        search_tvshow(tvshow, season, episode, languages, filename)
+        search_tvshow(tvshow, season, episode, languages, filename, yearval)
     elif title and yearval > 1900:
         search_movie(title, year, languages, filename)
     elif title:
@@ -373,8 +456,8 @@ def search(item):
 
     if item['mansearch']:
         search_manual(item['mansearchstr'], item['3let_language'], filename)
-    elif item['tvshow']:
-        search_tvshow(item['tvshow'], item['season'], item['episode'], item['3let_language'], filename)
+    elif item['tvshow'] and item['year']:
+        search_tvshow(item['tvshow'], item['season'], item['episode'], item['3let_language'], filename, item['year'])
     elif item['title'] and item['year']:
         search_movie(item['title'], item['year'], item['3let_language'], filename)
     elif item['title']:

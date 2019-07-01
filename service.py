@@ -147,6 +147,71 @@ def find_movie(content, title, year):
     return None
 
 
+def find_movie_google_edition(content, title, year):
+    found_urls = []
+    found_movies = []
+    # match https://subscene.com/subtitles/13-going-on-30
+    # n not https://subscene.com/subtitles/13-going-on-30/english/516887
+    search_result_url_pattern = "(?P<url>https:\/\/subscene\.com\/subtitles\/.+?)[\"/&<?]"
+
+    h = HTMLParser.HTMLParser()
+    for matches in re.finditer(search_result_url_pattern, content, re.IGNORECASE):
+        found_url = matches.group('url')
+        log(__name__, "Found match: " + found_url)
+        if found_url in found_urls:
+            continue
+            
+        found_urls.append(found_url)
+        
+        return found_url
+
+        #found_title = matches.group('title')
+        #found_title = h.unescape(found_title)
+        #log(__name__, "Found movie on search page: %s (%s)" % (found_title, matches.group('year')))
+        #found_movies.append(
+        #    {'t': string.lower(found_title),
+        #     'y': int(matches.group('year')),
+        #     'is_exact': secmatches.group('section') == 'exact',
+        #     'is_close': secmatches.group('section') == 'close',
+        #     'l': matches.group('link'),
+        #     'c': int(matches.group('numsubtitles'))})
+
+    #year = int(year)
+    #title = string.lower(title)
+    # Priority 1: matching title and year
+    #if year > -1:
+    #    for movie in found_movies:
+    #        if string.find(movie['t'], title) > -1:
+    #            if movie['y'] == year:
+    #                log(__name__, "Matching movie found on search page: %s (%s)" % (movie['t'], movie['y']))
+    #                return movie['l']
+
+    # Priority 2: matching title and one off year
+    #if year > -1:
+    #    for movie in found_movies:
+    #        if string.find(movie['t'], title) > -1:
+    #            if movie['y'] == year + 1 or movie['y'] == year - 1:
+    #                log(__name__, "Matching movie found on search page (one off year): %s (%s)" % (movie['t'], movie['y']))
+    #                return movie['l']
+
+    # Priority 3: "Exact" match according to search result page
+    #close_movies = []
+    #for movie in found_movies:
+    #    if movie['is_exact']:
+    #        log(__name__, "Using 'Exact' match: %s (%s)" % (movie['t'], movie['y']))
+    #        return movie['l']
+    #    if movie['is_close']:
+    #        close_movies.append(movie)
+
+    # Priority 4: "Close" match according to search result page
+    #if len(close_movies) > 0:
+    #    close_movies = sorted(close_movies, key=itemgetter('c'), reverse=True)
+    #    log(__name__, "Using 'Close' match: %s (%s)" % (close_movies[0]['t'], close_movies[0]['y']))
+    #    return close_movies[0]['l']
+
+    return None
+
+
 def find_tv_show_season(content, tvshow, season):
     url_found = None
     found_urls = []
@@ -350,6 +415,9 @@ def prepare_search_string(s):
 
 
 def search_movie(title, year, languages, filename):
+    search_movie_google_edition(title, year, languages, filename)
+    return
+    
     title = prepare_search_string(title)
 
     log(__name__, "Search movie = %s" % title)
@@ -372,6 +440,34 @@ def search_movie(title, year, languages, filename):
                 if subspage_url is not None:
                     log(__name__, "Movie found in list, getting subs ...")
                     url = main_url + subspage_url
+                    getallsubs(url, languages, filename)
+                else:
+                    log(__name__, "Movie not found in list: %s" % title)
+
+
+def search_movie_google_edition(title, year, languages, filename):
+    title = prepare_search_string(title)
+
+    log(__name__, "Search movie = %s" % title)
+    url = "https://www.google.com/search?q=subscene.com+" + urllib.quote_plus(title)
+    content, response_url = geturl(url)
+
+    if content is not None:
+        #log(__name__, "Multiple movies found, searching for the right one ...")
+        subspage_url = find_movie_google_edition(content, title, year)
+        if subspage_url is not None:
+            log(__name__, "Movie found in list, getting subs ...")
+            url = subspage_url
+            getallsubs(url, languages, filename)
+        else:
+            log(__name__, "Movie not found in list: %s" % title)
+            if string.find(string.lower(title), "&") > -1:
+                title = string.replace(title, "&", "and")
+                log(__name__, "Trying searching with replacing '&' to 'and': %s" % title)
+                subspage_url = find_movie_google_edition(content, title, year)
+                if subspage_url is not None:
+                    log(__name__, "Movie found in list, getting subs ...")
+                    url = subspage_url
                     getallsubs(url, languages, filename)
                 else:
                     log(__name__, "Movie not found in list: %s" % title)

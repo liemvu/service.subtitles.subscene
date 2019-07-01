@@ -283,8 +283,10 @@ def getallsubs(url, allowed_languages, filename="", episode=""):
     subtitles = []
     h = HTMLParser.HTMLParser()
     episode_regex = None
+    any_episode_regex = None
     if episode != "":
         episode_regex = re.compile(get_episode_pattern(episode), re.IGNORECASE)
+        any_episode_regex = re.compile("(?:s[0-9]{2}e[0-9]{2}|\D[0-9]{1,2}x[0-9]{2})", re.IGNORECASE)
         log(__name__, "regex: %s" % get_episode_pattern(episode))
 
     for matches in re.finditer(subtitle_pattern, content, re.IGNORECASE | re.DOTALL):
@@ -316,15 +318,18 @@ def getallsubs(url, allowed_languages, filename="", episode=""):
 
             if episode != "":
                 # log(__name__, "match: "+subtitle_name)
+                # matching episode
                 if episode_regex.search(subtitle_name):
                     subtitles.append({'rating': rating, 'filename': subtitle_name, 'sync': sync, 'link': link,
                                       'lang': language_info, 'hearing_imp': hearing_imp, 'comment': comment})
+                # multiple files
                 elif numfiles > 2:
                     subtitle_name = subtitle_name + ' ' + (_xmbc_localized_string_utf8(32001) % int(matches.group('numfiles')))
                     subtitles.append({'rating': rating, 'filename': subtitle_name, 'sync': sync, 'link': link,
                                       'lang': language_info, 'hearing_imp': hearing_imp, 'comment': comment,
                                       'episode': episode})
-                else:
+                # not matching any episode (?)
+                elif not any_episode_regex.search(subtitle_name):
                     subtitles.append({'rating': rating, 'filename': subtitle_name, 'sync': sync, 'link': link,
                                       'lang': language_info, 'hearing_imp': hearing_imp, 'comment': comment,
                                       'episode': episode})

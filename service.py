@@ -363,6 +363,9 @@ def getallsubs(url, allowed_languages, filename="", episode=""):
         language_info = None
         if languagefound in subscene_languages:
             language_info = subscene_languages[languagefound]
+        else:
+            log(__name__, "not in subscene_languages: %s" % languagefound)
+            continue
 
         log(__name__, "language_info: %s, language_info['3let']: %s, allowed_languages: %s" % (language_info, language_info['3let'], allowed_languages))
         if language_info is not None and language_info['3let'] in allowed_languages:
